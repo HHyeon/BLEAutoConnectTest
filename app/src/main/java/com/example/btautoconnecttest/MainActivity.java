@@ -14,6 +14,7 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -34,7 +35,6 @@ public class MainActivity extends AppCompatActivity {
     private final static UUID LBS_UUID_BUTTON_CHAR = UUID.fromString("00001524-1212-efde-1523-785feabcd123");
     /** LED characteristic UUID. */
     private final static UUID LBS_UUID_LED_CHAR = UUID.fromString("00001525-1212-efde-1523-785feabcd123");
-
 
     public static final String TAG = "MAINSESSION";
     private static final int REQUEST_PERMISSION_CHECK = 0xAB; // random number
@@ -138,15 +138,16 @@ public class MainActivity extends AppCompatActivity {
         else if(id == R.id.btn_ledtoggle) {
             if(bluetoothgatt != null) {
                 led[0] ^= 1;
-                CharacteristicWrite(LBS_UUID_LED_CHAR, led);
+                CharacteristicWrite(led);
             }
         }
     }
     byte[] led = {0};
 
-
     void ConnectDevice(BluetoothDevice device) {
         Toast.makeText(this, "connecting " + device.getName() + ", " + device.getAddress(), Toast.LENGTH_SHORT).show();
+
+        device.createBond(); // it makes peer manager functions works
 
         bluetoothgatt = device.connectGatt(this, false, GattCallback);
     }
@@ -159,8 +160,6 @@ public class MainActivity extends AppCompatActivity {
             bluetoothgatt = null;
         }
     }
-
-
 
     BluetoothGattCallback GattCallback = new BluetoothGattCallback() {
         @Override
@@ -228,14 +227,20 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            super.onDescriptorRead(gatt, descriptor, status);
             Log.d(TAG, "onDescriptorRead");
         }
 
         @Override
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            super.onDescriptorWrite(gatt, descriptor, status);
             Log.d(TAG, "onDescriptorWrite");
+        }
+
+        @Override
+        public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            Log.d(TAG, "onCharacteristicRead - " + status);
+            if(status == BluetoothGatt.GATT_SUCCESS) {
+                Log.d(TAG, "onCharacteristicRead GATT_SUCCESS");
+            }
         }
 
         @Override
@@ -252,8 +257,7 @@ public class MainActivity extends AppCompatActivity {
     };
 
 
-
-    void CharacteristicWrite(UUID uuid, byte[] b) {
+    void CharacteristicWrite(byte[] b) {
         if(bluetoothgatt != null) {
             if(service_blinky != null) {
                 if(characteristic_blinky_led != null) {
